@@ -1,19 +1,11 @@
-# Data Cleaning
-# 1 Feature Engineering to eliminate negative values
-# 2 Handling missing data
-# 3 Handling categorical data
-# Data Transformation
-# 1 Handling skwed data with Log transform
-# 2 Centering data with standarditzation
-# Data Deorrelation and Dimensionality reduction
-# 1 PCA
-# Data ReStandardtization
-# Clustering
-# 1 Kmeans
-# Evaluation
-# 1 Within cluster sum of squared errors
-# Visualization
-# 1 Clusters in 2D plane
+# Method
+# 1.Centering
+# 2.Standardization
+# 3.Decorrelation
+# 4.ReStandardization
+# 5.Feature Reduction
+# 6.Finding the optimal number of clusters
+# 7.Deriving personas from clusters
 
 import pandas as pd
 from sklearn.cluster import KMeans
@@ -23,7 +15,7 @@ from matplotlib import pyplot as plt
 from sklearn.preprocessing import StandardScaler
 import numpy as np
 from sklearn.decomposition import PCA
-import sys
+from sklearn import datasets
 import pickle
 
 font = {'family': 'serif',
@@ -31,37 +23,26 @@ font = {'family': 'serif',
         'size': 15}
 
 matplotlib.rc('font', **font)
-
-#plt.style.use('fivethirtyeight')
 plt.style.use('fast')
 
-# Change this
-continues_cols = []
-categorical_cols = []
 
-def data_cleaning(file_name):
-    data = pd.read_csv(file_name)
-    # Note change this function
-    return data, data
+def scale(data_to_scale):
+    scaler = StandardScaler(copy=True, with_mean=True, with_std=True)
+    scaler.fit(data_to_scale)
+    data_normalized = scaler.transform(data_to_scale)
+    print('Data is normalized')
+    print('mean: ', data_normalized.mean(axis=0).round(2))
+    print('std: ', data_normalized.std(axis=0).round(2))
+    return data_normalized
 
 
-def data_transformation(data):
+def data_transformation(data, continues_cols):
     # Limit the number of columns for transformation
-    # data = data.iloc[:, 0:36]
-
     data_log = data.copy(deep=True)
 
     for col in continues_cols:
         data_log.loc[:, col] = np.log(data_log.loc[:, col] + 1)
-
-    scaler = StandardScaler(copy=True, with_mean=True, with_std=True)
-    scaler.fit(data_log)
-    data_normalized = scaler.transform(data_log)
-    print('Data is normalized')
-    print('mean: ', data_normalized.mean(axis=0).round(2))
-    print('std: ', data_normalized.std(axis=0).round(2))
-    data_normalized.dump('processed_data/data_transformed.csv')
-
+        data_normalized = scale(data_log)
     return data_normalized
 
 
@@ -72,37 +53,46 @@ def decorrelate_reduce(data, col_names):
     print('Data is normalized')
     print('mean: ', decorr_data.mean(axis=0).round(2))
     print('std: ', decorr_data.std(axis=0).round(2))
-    decorr_data.dump('processed_data/data_decorrelated.csv')
-    out = pd.DataFrame(pca.components_[0:2, ], columns=col_names[0:75], index=['PC-1', 'PC-2'])
-    out.dump('pca_features.csv')
-
+    # get feature weights for each component plain
+    weights = pd.DataFrame(pca.components_[0:2, ], columns=col_names[0:75], index=['PC-1', 'PC-2'])
+    print('Weights for first to PCs %s' % weights)
     return decorr_data
 
-def data_re_transformation(data):
-    scaler = StandardScaler(copy=True, with_mean=True, with_std=True)
-    scaler.fit(data)
-    data_normalized = scaler.transform(data)
-    print('Data is normalized')
-    print('mean: ', data_normalized.mean(axis=0).round(2))
-    print('std: ', data_normalized.std(axis=0).round(2))
-    data_normalized.dump('processed_data/data_re_transformed.csv')
 
+def data_re_transformation(data):
+    data_normalized = scale(data)
     return data_normalized
 
 
-def visualize_distributions_for_skewness(data):
-    for col in data.columns:
-        print(col)
-        sns_plot = sns.distplot(data.loc[:, col], bins=20)
-        fig = sns_plot.get_figure()
-        fig.savefig('batch_figures/' + col + ".png")
-        fig.clear()
+for col in data.columns:
+    print(col)
+    distance = sns.distplot(data.loc[:, col], bins=20)
+    figure = distance.get_figure()
+    figure.savefig('batch_figures/' + col + '.png')
+    figure.clear()
 
-        frequency_log = np.log(data.loc[:, col] + 1)
-        log_plot = sns.distplot(frequency_log)
-        log_fig = log_plot.get_figure()
-        log_fig.savefig('batch_figures/log' + col + ".png")
-        plt.show()
+    logarithmic = np.log(data.loc[:, col] + 1)
+    log_plot = sns.distplot(logarithmic)
+    log_fig = log_plot.get_figure()
+    log_fig.savefig('batch_figures/log' + col + ".png")
+
+
+def visualize_distributions_for_skewness(data_vis):
+    for col_vis in data_vis.columns:
+        print(col_vis)
+        try:
+            sns_plot = sns.distplot(data_vis.loc[:, col_vis], bins=20)
+            fig = sns_plot.get_figure()
+            fig.savefig('figures/' + str(col_vis) + ".png")
+            fig.clear()
+
+            frequency_log = np.log(data_vis.loc[:, col_vis] + 1)
+            log_plot_vis = sns.distplot(frequency_log)
+            log_fig_vis = log_plot_vis.get_figure()
+            log_fig_vis.savefig('figures/log' + str(col_vis) + ".png")
+            plt.show()
+        except:
+            print("No data distribution, constant")
 
 
 def visualize_pca_variance(features, data):
@@ -110,7 +100,7 @@ def visualize_pca_variance(features, data):
     pca = PCA()
     pca.fit_transform(data)
 
-    plt.bar(range(1,len(pca.explained_variance_ratio_)+1), pca.explained_variance_ratio_)
+    plt.bar(range(1, len(pca.explained_variance_ratio_) + 1), pca.explained_variance_ratio_)
     plt.xticks()
     plt.ylabel('variance ratio')
     plt.xlabel('PCA feature')
@@ -118,7 +108,7 @@ def visualize_pca_variance(features, data):
     plt.savefig('figures/pca_variance_ratio.png')
     plt.show()
 
-    plt.bar(range(1, len(pca.explained_variance_ratio_)+1), pca.explained_variance_ratio_.cumsum())
+    plt.bar(range(1, len(pca.explained_variance_ratio_) + 1), pca.explained_variance_ratio_.cumsum())
     plt.xticks()
     plt.ylabel('cumulative sum of variances')
     plt.xlabel('PCA feature')
@@ -134,7 +124,7 @@ def visualize_feature_corr(data):
     corr_metrics.style.background_gradient()
 
 
-def visualize_clusters_in_2D(data, num_components=2, k=3):
+def visualize_clusters_in_2d(data, num_components=2, k=3):
     # Visualize the results on PCA-reduced data
 
     reduced_data_high_dim = PCA().fit_transform(data)
@@ -169,6 +159,7 @@ def visualize_clusters_in_2D(data, num_components=2, k=3):
 
     plt.scatter(reduced_data[:, 0], reduced_data[:, 1], c=clusters)
     plt.legend(loc='upper right')
+
     # Plot the centroids as a white X
     centroids = kmeans.cluster_centers_
     plt.scatter(centroids[:, 0], centroids[:, 1],
@@ -183,7 +174,7 @@ def visualize_clusters_in_2D(data, num_components=2, k=3):
     plt.show()
 
 
-def visualize_clusters_in_2D_1(data, num_components=2, k=3):
+def visualize_clusters_in_2d_1(data, num_components=2, k=3):
     # Visualize the results on PCA-reduced data
 
     reduced_data = PCA(n_components=num_components).fit_transform(data)
@@ -226,6 +217,7 @@ def visualize_clusters_in_2D_1(data, num_components=2, k=3):
     plt.ylim(y_min, y_max)
     plt.xticks(())
     plt.yticks(())
+    plt.savefig('figures/2D.png')
     plt.show()
 
 
@@ -244,12 +236,7 @@ def visualize_elbow(data):
     plt.ylabel('SSE')
     plt.tight_layout()
     sns.pointplot(x=list(sse.keys()), y=list(sse.values()))
-    plt.show()
-    pickle.dump(sse, 'processed_data/sse.csv')
-
-
-def compare_clusters(data):
-   return 0
+    plt.savefig('figures/elbow.png')
 
 
 def cluster(data, original_data, k, r):
@@ -279,15 +266,15 @@ def cluster(data, original_data, k, r):
     centers_median = grouped_apps.median()
     stds = grouped_apps.std()
 
-    centers.to_csv('results/cluster_centers' + str(k) + str(r) +  '.csv')
-    stds.to_csv('results/cluster_stds' + str(k) + str(r) + '.csv')
-    centers_median.to_csv('results/cluster_medians' + str(k) + str(r) + '.csv')
+    centers.to_csv('cluster_centers' + str(k) + str(r) + '.csv')
+    stds.to_csv('cluster_stds' + str(k) + str(r) + '.csv')
+    centers_median.to_csv('cluster_medians' + str(k) + str(r) + '.csv')
 
     pos_centers = grouped_apps.agg(lambda x: x[x > 0].mean())
     pos_centers_median = grouped_apps.agg(lambda x: x[x > 0].median())
 
     most_frequent_values = grouped_apps.agg(lambda x: x.value_counts().index[0])
-    most_frequent_values.to_csv('results/frequent_values' + str(k) + '.csv')
+    most_frequent_values.to_csv('frequent_values' + str(k) + '.csv')
 
     n_members_per_cluster = grouped_apps.count()
     print(n_members_per_cluster)
@@ -297,27 +284,38 @@ def cluster(data, original_data, k, r):
     return centers, clusters
 
 
-def main():
-    # Main code
-    filename = 'data/your_file.csv'
-    upload = False
-    k = 3
-
+def run_analysis(data, k):
     # Clean data
-    (clean_data, data_post_clustering) = data_cleaning(filename)
-
-    # Visualize
-    visualize_distributions_for_skewness
+    # Already clean
 
     # Transform data to prepare for PCA/clustering
-    transformed_data = \
-        data_transformation(clean_data[clean_data.columns.difference(categorical_cols)])
+    transoformed_data = data_transformation(data, data.columns)
 
     # Decorrelate and reduce dimension with PCA
-    decorrelated_data = decorrelate_reduce(transformed_data, clean_data.columns)
+    decorrelated_data = decorrelate_reduce(transoformed_data, data.columns)
 
     re_standardized_pca_data = data_re_transformation(decorrelated_data)
 
     # Cluster data with k-means
-    (cluster_centers, clusters) = cluster(re_standardized_pca_data, clean_data, k, 1)
+    (cluster_centers, clusters) = cluster(re_standardized_pca_data, data, k, 1)
     print(cluster_centers)
+
+    visualize_feature_corr(data)
+    visualize_pca_variance(data.columns, transoformed_data)
+
+    visualize_distributions_for_skewness(data)
+    visualize_clusters_in_2d_1(transoformed_data, 2, k)
+
+    visualize_elbow(data)
+
+
+# Main code
+# Define data here
+# load_digits
+loaded_data = datasets.load_iris()
+data = pd.DataFrame(loaded_data.data)
+ground_truth = loaded_data.target
+k = 10
+
+# Create a directory named figures
+run_analysis(data, k)
