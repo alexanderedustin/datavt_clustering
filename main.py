@@ -55,26 +55,13 @@ def decorrelate_reduce(data, col_names):
     print('std: ', decorr_data.std(axis=0).round(2))
     # get feature weights for each component plain
     weights = pd.DataFrame(pca.components_[0:2, ], columns=col_names[0:75], index=['PC-1', 'PC-2'])
-    print('Weights for first to PCs %s' % weights)
+    print('Weights for first two PCs %s' % weights)
     return decorr_data
 
 
 def data_re_transformation(data):
     data_normalized = scale(data)
     return data_normalized
-
-
-for col in data.columns:
-    print(col)
-    distance = sns.distplot(data.loc[:, col], bins=20)
-    figure = distance.get_figure()
-    figure.savefig('batch_figures/' + col + '.png')
-    figure.clear()
-
-    logarithmic = np.log(data.loc[:, col] + 1)
-    log_plot = sns.distplot(logarithmic)
-    log_fig = log_plot.get_figure()
-    log_fig.savefig('batch_figures/log' + col + ".png")
 
 
 def visualize_distributions_for_skewness(data_vis):
@@ -231,6 +218,7 @@ def visualize_elbow(data):
         sse[k] = kmeans.inertia_  # sum of squared distances to closest cluster center
 
     # Plot SSE for each *k*
+    plt.figure()
     plt.title('The Elbow Method')
     plt.xlabel('k')
     plt.ylabel('SSE')
@@ -309,13 +297,17 @@ def run_analysis(data, k):
     visualize_elbow(data)
 
 
-# Main code
-# Define data here
-# load_digits
-loaded_data = datasets.load_iris()
-data = pd.DataFrame(loaded_data.data)
-ground_truth = loaded_data.target
-k = 10
+def main():
 
-# Create a directory named figures
-run_analysis(data, k)
+    # Load data here, try load_digits
+    loaded_data = datasets.load_iris()
+    data = pd.DataFrame(loaded_data.data)
+    ground_truth = loaded_data.target
+    k = 10
+
+    # Create a directory named figures
+    run_analysis(data, k)
+
+
+if __name__ == '__main__':
+    main()
